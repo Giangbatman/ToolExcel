@@ -1,0 +1,211 @@
+Sub Button1_Click()
+    Dim sourceWB As Workbook
+    Dim sourceWS As Worksheet
+    Dim targetWS As Worksheet
+    Dim fileDialog As fileDialog
+    Dim selectedFile As Variant
+    Dim lastRow As Long
+    Dim i As Long
+    Dim eventDetails As String
+    Dim personName As String
+    Dim facePictureLibrary As String
+    
+    ' T?o d?i tu?ng FileDialog
+    Set fileDialog = Application.fileDialog(msoFileDialogFilePicker)
+    With fileDialog
+        .Title = "Ch?n file ngu?n"
+        .Filters.Add "Excel Files", "*.xlsx"
+        .AllowMultiSelect = False
+        If .Show = -1 Then
+            selectedFile = .SelectedItems(1)
+        Else
+            Exit Sub
+        End If
+    End With
+    
+    ' Ki?m tra xem ngu?i dùng dã ch?n file hay chua
+    If selectedFile <> "" Then
+        Set sourceWB = Workbooks.Open(selectedFile)
+        Set sourceWS = sourceWB.Sheets(1)
+        Set targetWS = ThisWorkbook.Sheets(1)
+        
+        ' Xác d?nh dòng cu?i cùng trong c?t Event Details trong file ngu?n
+        lastRow = sourceWS.Cells(sourceWS.Rows.Count, "J").End(xlUp).Row
+        
+        ' Duy?t qua t?ng dòng trong c?t Event Details trong file ngu?n
+        For i = 2 To lastRow
+            eventDetails = sourceWS.Cells(i, "J").Value
+            
+            ' Ki?m tra xem eventDetails có dúng d?nh d?ng hay không
+            If InStr(1, eventDetails, "Person Name:", vbTextCompare) > 0 And InStr(1, eventDetails, "Face Picture Library Name:", vbTextCompare) > 0 Then
+                ' Trích xu?t thông tin Person Name
+                personName = Trim(Split(Split(eventDetails, "Person Name:")(1), ",")(0))
+                ' Ð?nh d?ng Person Name thành ch? hoa d?u t?
+                personName = ProperUnicode(personName)
+                
+                ' Trích xu?t thông tin Face Picture Library Name
+                facePictureLibrary = Trim(Split(Split(eventDetails, "Face Picture Library Name:")(1), ",")(0))
+                ' Ð?nh d?ng Face Picture Library Name thành ch? hoa d?u t?
+                facePictureLibrary = ProperUnicode(facePictureLibrary)
+                
+                ' Gán thông tin vào c?t dích tuong ?ng trong file hi?n t?i
+                targetWS.Cells(i, 1).Value = sourceWS.Cells(i, 1).Value ' C?t Index
+                targetWS.Cells(i, 2).Value = sourceWS.Cells(i, 4).Value ' C?t Event Time
+                targetWS.Cells(i, 3).Value = personName ' C?t Person Name
+                targetWS.Cells(i, 4).Value = facePictureLibrary ' C?t Face Picture Library Name
+            End If
+        Next i
+        
+        ' Gán tên cho các c?t m?i
+        targetWS.Cells(1, 1).Value = "Index"
+        targetWS.Cells(1, 2).Value = "Event Time"
+        targetWS.Cells(1, 3).Value = "Person Name"
+        targetWS.Cells(1, 4).Value = "Face Picture Library Name"
+        
+        sourceWB.Close SaveChanges:=False ' Ðóng file ngu?n mà không luu thay d?i
+        Set sourceWB = Nothing
+        Set sourceWS = Nothing
+        Set targetWS = Nothing
+        
+        MsgBox "Hoàn thành import và d?nh d?ng thông tin!"
+    End If
+End Sub
+Function ProperUnicode(ByVal str As String) As String
+    Dim words() As String
+    Dim word As Variant
+    words = Split(str, " ")
+    For Each word In words
+        If Len(word) > 0 Then
+            Mid$(word, 1, 1) = UCase(Mid$(word, 1, 1))
+            Mid$(word, 2) = LCase(Mid$(word, 2))
+        End If
+    Next word
+    ProperUnicode = Join(words, " ")
+End Function
+Sub Button2_Click()
+    Dim sourceWS As Worksheet
+    Dim targetWS As Worksheet
+    Dim filterStartDate As Date
+    Dim filterEndDate As Date
+    Dim filterLibrary As String
+    Dim lastRow As Long
+    Dim i As Long
+    Dim j As Long
+    Dim personName As String
+    Dim eventTime As Date
+    Dim facePictureLibrary As String
+    Dim targetRow As Long
+    Dim nameExists As Boolean
+    
+    ' Ch?n b?ng tính ngu?n ch?a d? li?u
+    Set sourceWS = ThisWorkbook.Sheets("Sheet1") ' Thay th? "Sheet1" b?ng tên b?ng tính ngu?n c?a b?n
+    
+    ' T?o b?ng tính m?i d? hi?n th? k?t qu?
+    filterLibrary = InputBox("Nh?p tên co quan:")
+    If filterLibrary = "" Then Exit Sub
+    
+    Set targetWS = ThisWorkbook.Sheets.Add(After:=sourceWS)
+    targetWS.Name = "Bao cao theo " & filterLibrary ' Ð?t tên b?ng tính m?c tiêu
+    
+    ' Nh?p giá tr? ngày b?t d?u và ngày k?t thúc d? l?c
+    filterStartDate = sourceWS.Range("K1").Value ' Giá tr? ngày b?t d?u l?c trong ô A1
+    If Not IsDate(filterStartDate) Then Exit Sub
+    
+    filterEndDate = sourceWS.Range("L1").Value ' Giá tr? ngày k?t thúc l?c trong ô B1
+    If Not IsDate(filterEndDate) Then Exit Sub
+    
+    ' Ð?t tiêu d? cho các c?t trong b?ng tính m?i
+    targetWS.Cells(1, 1).Value = "Index"
+    targetWS.Cells(1, 2).Value = "Person Name"
+    targetWS.Cells(1, 3).Value = "Event Date"
+    targetWS.Cells(1, 4).Value = "Earliest Event Time"
+    targetWS.Cells(1, 5).Value = "Latest Event Time"
+    targetWS.Cells(1, 6).Value = "Face Picture Library Name"
+    targetWS.Cells(1, 7).Value = "Hour of Working"
+    
+    ' Xác d?nh dòng cu?i cùng trong c?t "Person Name" c?a b?ng ngu?n
+    lastRow = sourceWS.Cells(sourceWS.Rows.Count, "D").End(xlUp).Row
+    
+    ' Thi?t l?p dòng b?t d?u ghi k?t qu? trong b?ng tính m?i
+    targetRow = 2
+    
+    ' Duy?t qua t?ng dòng trong c?t "Person Name" c?a b?ng ngu?n
+    For i = 2 To lastRow
+        personName = sourceWS.Cells(i, "C").Value
+        eventTime = CDate(sourceWS.Cells(i, "B").Value)
+        facePictureLibrary = sourceWS.Cells(i, "D").Value
+    
+        ' Ki?m tra giá tr? ngày, tên co quan và th?i gian s?m nh?t, mu?n nh?t cho t?ng Person Name
+        If eventTime >= filterStartDate And eventTime <= filterEndDate And facePictureLibrary = filterLibrary Then
+            ' Ki?m tra xem tên ngu?i dã t?n t?i trong b?ng tính m?i chua
+            nameExists = False
+            For j = 2 To targetRow - 1
+                If targetWS.Cells(j, 2).Value = personName And DateValue(targetWS.Cells(j, 3).Value) = DateValue(eventTime) Then
+                    nameExists = True
+                    If eventTime < CDate(targetWS.Cells(j, 4).Value) Then
+                        targetWS.Cells(j, 4).Value = eventTime ' C?p nh?t th?i gian s?m nh?t
+                    End If
+                    If eventTime > CDate(targetWS.Cells(j, 5).Value) Then
+                        targetWS.Cells(j, 5).Value = eventTime ' C?p nh?t th?i gian mu?n nh?t
+                    End If
+                    Exit For
+                End If
+            Next j
+    
+            ' Ghi k?t qu? vào b?ng tính m?i n?u tên ngu?i chua t?n t?i
+            If Not nameExists Then
+                targetWS.Cells(targetRow, 1).Value = targetRow - 1 ' Gán giá tr? Index
+                targetWS.Cells(targetRow, 2).Value = personName
+                targetWS.Cells(targetRow, 3).Value = DateValue(eventTime) ' Gán ngày s? ki?n
+                targetWS.Cells(targetRow, 4).Value = eventTime ' Gán th?i gian s?m nh?t
+                targetWS.Cells(targetRow, 5).Value = eventTime ' Gán th?i gian mu?n nh?t
+                targetWS.Cells(targetRow, 6).Value = facePictureLibrary
+    
+                targetRow = targetRow + 1 ' Tang s? dòng trong b?ng tính m?i
+            End If
+        End If
+    Next i
+    
+    ' S?p x?p b?ng tính m?i theo tên ngu?i và ngày s? ki?n
+    targetWS.Sort.SortFields.Clear
+    targetWS.Sort.SortFields.Add Key:=targetWS.Range("B2:B" & targetRow - 1), _
+        SortOn:=xlSortOnValues, Order:=xlAscending, DataOption:=xlSortNormal
+    targetWS.Sort.SortFields.Add Key:=targetWS.Range("C2:C" & targetRow - 1), _
+        SortOn:=xlSortOnValues, Order:=xlAscending, DataOption:=xlSortNormal
+    With targetWS.Sort
+        .SetRange targetWS.Range("A1:G" & targetRow - 1)
+        .Header = xlYes
+        .MatchCase = False
+        .Orientation = xlTopToBottom
+        .SortMethod = xlPinYin
+        .Apply
+    End With
+    
+    ' Tính s? gi? làm vi?c và ghi vào c?t "Hour of Working"
+    For i = 2 To targetRow - 1
+        Dim startTime As Date
+        Dim endTime As Date
+        startTime = CDate(targetWS.Cells(i, 4).Value) ' L?y th?i gian s?m nh?t
+        endTime = CDate(targetWS.Cells(i, 5).Value) ' L?y th?i gian mu?n nh?t
+        
+        ' Tính s? gi? làm vi?c
+        Dim workingHours As Double
+        If TimeValue(startTime) = TimeValue("13:30") Then
+            workingHours = DateDiff("n", startTime, endTime) ' Không tr? 1,5 ti?ng n?u startTime là 13:30
+        Else
+            workingHours = DateDiff("n", startTime, endTime) - 90 ' Tr? 1,5 ti?ng n?u không ph?i là 13:30
+        End If
+        
+        ' Chuy?n d?i thành d?ng hh:mm:ss
+        Dim formattedWorkingHours As String
+        formattedWorkingHours = Format(Int(workingHours / 60), "00") & ":" & Format(workingHours Mod 60, "00") & ":00"
+        
+        ' Gán giá tr? s? gi? làm vi?c vào c?t "Hour of Working"
+        targetWS.Cells(i, 7).Value = formattedWorkingHours
+    Next i
+    
+    MsgBox "Hoàn thành tìm ki?m th?i gian s?m nh?t và mu?n nh?t, s?p x?p theo tên ngu?i và tính s? gi? làm vi?c theo t?ng ngày."
+End Sub
+
+
+
