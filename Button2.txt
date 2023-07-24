@@ -1,4 +1,4 @@
-    Dim sourceWS As Worksheet
+     Dim sourceWS As Worksheet
     Dim targetWS As Worksheet
     Dim filterStartDate As Date
     Dim filterEndDate As Date
@@ -107,7 +107,7 @@
         Dim totalMinutes As Double
         If startTime = endTime Then
             totalMinutes = 0
-        ElseIf (Hour(startTime) = 13 And Minute(startTime) >= 30) Or Hour(startTime) >= 14 Then
+        ElseIf (Hour(startTime) = 13 And Minute(startTime) >= 30) Or Hour(startTime) >= 14 Or Hour(endTime) = 12 Or Hour(endTime) <= 12 Then
             ' N?u startTime t? 13:30 tr? di ho?c t? 14:00 tr? di thì không tr? 90 phút
             totalMinutes = DateDiff("n", startTime, endTime)
         Else
